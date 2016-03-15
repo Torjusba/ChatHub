@@ -18,9 +18,6 @@ namespace ChatHub
         //List of active server threads
         List<Thread> activeThreads = new List<Thread>();
 
-        //Main Queue of messages to distribute
-        private Queue<string> sendQueue = new Queue<string>();
-        object LOCKsendQueue = new object();
 
         //List of all the client handlers created
         private List<ClientHandler> clientHandlers = new List<ClientHandler>();
@@ -31,7 +28,7 @@ namespace ChatHub
 
 
         //Constructor
-        public Server (int port)
+        public Server(int port)
         {
             //Set the port and create a TCP listener
             tListener = new TcpListener(localIP, port);
@@ -45,33 +42,28 @@ namespace ChatHub
             Thread msgThread = new Thread(new ThreadStart(msgDistributionLoop));
             activeThreads.Add(msgThread);
             msgThread.Start();
-
-
         }
 
+        //Loop to distribute messages received
         void msgDistributionLoop()
         {
             while (true)
             {
                 ClientHandler.rMessagesRE.WaitOne();
-                lock(LOCKsendQueue)
+                foreach (ClientHandler ch in clientHandlers)
                 {
-                    foreach (ClientHandler ch in clientHandlers)
+                    lock (ch.LOCKrMessages)
                     {
-                        lock (ch.LOCKrMessages)
+                        foreach (string msg in ch.rMessages)
                         {
-                            foreach (string msg in ch.rMessages)
+                            foreach (ClientHandler ch2 in clientHandlers)
                             {
-                                sendQueue.Enqueue(msg);
+                                if (ch2 != ch)
+                                    ch2.sendMessage(msg);
                             }
-                            ch.rMessages.Clear();
                         }
+                        ch.rMessages.Clear();
                     }
-                    foreach(string s in sendQueue)
-                    {
-                        Console.WriteLine(s);
-                    }
-                    sendQueue.Clear();
                 }
             }
         }
@@ -79,20 +71,20 @@ namespace ChatHub
 
         //Receive a connection and create a new ClientHandler for it
         void ReceiveConnections()
-        { 
+        {
             //Start the listener and prepare a socket
             tListener.Start();
             Console.WriteLine("Started listening");
-            Socket socket;
+            TcpClient client;
 
             waitingForConnections = true;
             //Repeatedly look for connections while the server wants to
             while (waitingForConnections)
             {
                 //Receive a connection, create a ClientHandler and add it to the list
-                socket = tListener.AcceptSocket();
-                clientHandlers.Add(new ClientHandler(socket));
-                Console.WriteLine("Connected to {0}", socket.RemoteEndPoint);
+                client = tListener.AcceptTcpClient();
+                clientHandlers.Add(new ClientHandler(client));
+                Console.WriteLine("Connected to {0}", client.ToString());
             }
         }
     }

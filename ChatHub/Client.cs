@@ -31,13 +31,11 @@ namespace ChatHub
         AutoResetEvent rMessagesRE = new AutoResetEvent(false);
         public AutoResetEvent sMessagesRE = new AutoResetEvent(false);
 
-        //Received messages and messages to send
-        public object LOCKrMessages = new object();
-        public Queue<string> rMessages = new Queue<string>();
+        //Messages to send
         public object LOCKsMessages = new object();
         public Queue<string> sMessages = new Queue<string>();
 
-
+        string name = "placeHolderName";
 
         //Constructor
         public Client (string ip_string, int port_input)
@@ -49,15 +47,12 @@ namespace ChatHub
             //Connect
             tClient.Connect(ip, port);
             Console.WriteLine("Connected");
-
-            Thread.Sleep(1000);
-
-            Console.WriteLine("done");
-
+            
             //Update the network stream with connection
             netStream = tClient.GetStream();
             sReader = new StreamReader(netStream);
             sWriter = new StreamWriter(netStream);
+            sWriter.AutoFlush = true;
 
             //Start threads for sending and receiving
             Thread receiverThread = new Thread(new ThreadStart(receiveLoop));
@@ -70,10 +65,25 @@ namespace ChatHub
 
             while (true)
             {
-                Console.Write("msg: ");
-                sendMessage(Console.ReadLine());
-            }
+                string input = Console.ReadLine();
+                string[] cmd = input.ToLower().Split(' ');
+                string msg = "";
+                switch (cmd[0])
+                {
+                    case "#setname":
+                        name = cmd[1];
+                        break;
+                    default:
+                        msg = input;
+                        break;
+                }
 
+                if (msg != "")
+                {
+                    msg = String.Format("{0}: {1}", name, msg);
+                    sendMessage(msg);
+                }
+            }
         }
 
         //Pass a message to the sendLoop
@@ -105,7 +115,6 @@ namespace ChatHub
                     //Send all the queued messages
                     foreach (string msg in sMessages)
                     {
-                        Console.WriteLine("Sent {0}", msg);
                         sWriter.WriteLine(msg);
                     }
                     sMessages.Clear();
@@ -119,11 +128,14 @@ namespace ChatHub
             while (true)
             {
                 //Add message to queue
-                rMessages.Enqueue(sReader.ReadLine());
+                handleMessage(sReader.ReadLine());
+             }
+        }
 
-                //Trigger the AutoResetEvent for received messages
-                rMessagesRE.Set();
-            }
+        //Deal with the message received
+        void handleMessage(string msg)
+        {
+            Console.WriteLine(msg);
         }
     }
 }
