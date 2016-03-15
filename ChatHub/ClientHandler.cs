@@ -31,15 +31,16 @@ namespace ChatHub
         public Queue<string> sMessages = new Queue<string>();
 
         //Constructor
-        public ClientHandler (Socket socket)
+        public ClientHandler (TcpClient client)
         {
-            Console.WriteLine("ClientHandler created for {0}", socket.RemoteEndPoint);
+            Console.WriteLine("ClientHandler created for {0}", client.ToString());
 
 
             //Initialize network stream and reader/writer
-            netStream = new NetworkStream(socket);
+            netStream = client.GetStream();
             sReader = new StreamReader(netStream);
             sWriter = new StreamWriter(netStream);
+            sWriter.AutoFlush = true;
 
             //Create and add receiver thread to list
             Thread receiveThread = new Thread(new ThreadStart(receiveLoop));
@@ -96,12 +97,11 @@ namespace ChatHub
             while (true)
             {
                 Console.WriteLine("Waiting for message");
-                Console.WriteLine(sReader.ReadLine());
                 //Add message to queue
-                //rMessages.Enqueue(sReader.ReadLine());
+                rMessages.Enqueue(sReader.ReadLine());
 
                 //Trigger the AutoResetEvent for received messages
-                //rMessagesRE.Set();
+                rMessagesRE.Set();
             }
         }
     }
